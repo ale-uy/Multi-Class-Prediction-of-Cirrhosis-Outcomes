@@ -1,0 +1,8 @@
+catboost_info
+cat.csv
+env.bat
+lgbm.csv
+logistic.csv
+nn.csv
+submission.csv
+xgboost.csv
