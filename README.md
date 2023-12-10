@@ -1,3 +1,4 @@
+[LINK TO PYTHON JUPYTER NOTEBOOK](https://github.com/ale-uy/Multi-Class-Prediction-of-Cirrhosis-Outcomes/blob/main/s3e26.ipynb)
 ___
 
 <h1 style="background-color: red; color: black; font-family: cursive; font-size: 300%; text-align: center; border-radius: 50px 50px">Multi-Class Prediction of Cirrhosis Outcomes</h1>
