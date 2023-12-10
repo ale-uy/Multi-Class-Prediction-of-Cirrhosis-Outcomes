@@ -1,18 +1,18 @@
 ___
 
-<h1 style="background-color: red; color: black; font-family: cursive; font-size: 400%; text-align: center; border-radius: 50px 50px">Multi-Class Prediction of Cirrhosis Outcomes</h1>
+<h1 style="background-color: red; color: black; font-family: cursive; font-size: 300%; text-align: center; border-radius: 50px 50px">Multi-Class Prediction of Cirrhosis Outcomes</h1>
 
-<center> 
+---
 
-![Image large and flat](https://i.imgur.com/gegz2Az.jpeg)
+We will use boosting and stacking classifier models, we will apply Box-Cox transformation, we will under/oversample classes, we will calibrate probabilities, we will use class weights and much more, it will be interesting!
 
-</center>
+Utilizaremos modelos clasificadores de boosting y stacking, aplicaremos transformacion Box-Cox, haremos sub/sobremuestreo de clases, calibraremos probabilidades, usaremos pesos de clases y mucho mas ¡será interesante!
+
+>By [Ale uy](https://www.kaggle.com/lasm1984)
 
 ___
 
-<h1 id="goto0" style="background-color:orangered;font-family:cursive;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Table of Contents</h1>
-
-<div style="font-family: cursive">
+<h1 id="goto0" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Table of Contents</h1>
 
 0. [Table of Contents](#goto0)
 
@@ -32,25 +32,19 @@ ___
 
     5c. [LGBM Model](#goto5c)
 
-    5d. [CAT Model](#goto5c)
+    5d. [CAT Model](#goto5d)
 
     5e. [NN Model](#goto5e)
 
-6. [Voting Meta-Model](#goto6)
+6. [Staking Models](#goto6)
+
+    6a. [Voting Model](#goto6a)
 
 7. [Conclusions](#goto7)
 
-</div>
-
-<h1 id="goto1" style="background-color:orangered;font-family:cursive;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Notebook Description</h1>
-
-<div style="font-family: cursive">
+<h1 id="goto1" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Notebook Description</h1>
 
 [Back to Table of Contents](#goto0)
-
-</div>
-
-<div style="font-family: cursive">
 
 > ### **ENGLISH**
 
@@ -70,13 +64,7 @@ Cirrhosis results from prolonged liver damage, leading to extensive scarring, of
 
 ``test.csv`` - the test dataset; your objective is to predict the probability of each of the three Status values, e.g., Status_C, Status_CL, Status_D.
 
-``cirrhosis.csv`` - original dataset.
-
-</div>
-
 ---
-
-<div style="font-family: cursive">
 
 > ### **Español**
 
@@ -96,23 +84,13 @@ La cirrosis es el resultado de un daño hepático prolongado, que provoca cicatr
 
 ``test.csv`` - el conjunto de datos de prueba; su objetivo es predecir la probabilidad de cada uno de los tres valores de Estado, por ejemplo, Estado_C, Estado_CL, Estado_D.
 
-``cirrosis.csv`` - conjunto de datos original.
-
-</div>
-
 ---
 
 >Reference: [Walter Reade, Ashley Chow. (2023). Multi-Class Prediction of Cirrhosis Outcomes. Kaggle.](https://www.kaggle.com/competitions/playground-series-s3e26)
 
->By [Ale uy](https://www.kaggle.com/lasm1984)
-
-<h1 id="goto2" style="background-color:orangered;font-family:cursive;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Loading Libraries</h1>
-
-<div style="font-family: cursive">
+<h1 id="goto2" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Loading Libraries</h1>
 
 [Back to Table of Contents](#goto0)
-
-</div>
 
 #### Basic Tools | Herramientas Básicas
 
@@ -136,23 +114,23 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy.spatial.distance import squareform
 from sklearn.metrics import log_loss
 from scipy.stats import boxcox
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import ADASYN
+from imblearn.under_sampling import ClusterCentroids
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
-import tensorflow as tf
+from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import VotingClassifier
 ```
 
-<h1 id="goto3" style="background-color:orangered;font-family:cursive;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Reading Data Files</h1> 
-
-<div style="font-family: cursive">
+<h1 id="goto3" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Reading Data Files</h1> 
 
 [Back to Table of Contents](#goto0)
-
-</div>
 
 #### Competition Data | Datos de la Competición
 
@@ -198,13 +176,9 @@ test.drop('id', axis=1, inplace=True)
 TARGET = 'Status'
 ```
 
-<h1 id="goto4" style="background-color:orangered;font-family:newtimeroman;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Data Exploration</h1>
-
-<div style="font-family: cursive">
+<h1 id="goto4" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Data Exploration</h1>
 
 [Back to Table of Contents](#goto0)
-
-</div>
 
 ## Dataset Plots | Gráficos de los Datos
 
@@ -335,21 +309,19 @@ train.Status.value_counts()
 
 #### Kurtosis and Skew Analysis | Análisis de Curtosis y Sesgo
 
-* Explanation of Values:
-    * Kurtosis:
-        * ``Leptokurtic (positive kurtosis)``: Indicates that the tails of the distribution are heavier than they would be in a normal distribution. This implies that there are more extreme values present.
-        * ``Platykurtic (negative kurtosis)``: Indicates that the tails of the distribution are lighter than they would be in a normal distribution. This suggests that there are fewer extreme values present.
-    * Skew:
-        * ``Positive skew``: Indicates that the right tail of the distribution is longer or thicker than the left. Most of the data is concentrated on the left side and there are extreme values on the right side.
-        * ``Negative skewness``: Indicates that the left tail of the distribution is longer or thicker than the right. Most of the data is concentrated on the right side and there are extreme values on the left side.
-<!--  -->
-* Explicación de los Valores:
-    * Curtosis:
-        * ``Leptocúrtica (positive curtosis)``: Indica que las colas de la distribución son más pesadas de lo que serían en una distribución normal. Esto implica que hay más valores extremos presentes.
-        * ``Platicúrtica (negative curtosis)``: Indica que las colas de la distribución son más ligeras de lo que serían en una distribución normal. Esto sugiere que hay menos valores extremos presentes.
-    * Sesgo:
-        * ``Sesgo positivo``: Indica que la cola derecha de la distribución es más larga o gruesa que la izquierda. La mayoría de los datos se concentran en la parte izquierda y hay valores extremos en la parte derecha.
-        * ``Sesgo negativo``: Indica que la cola izquierda de la distribución es más larga o gruesa que la derecha. La mayoría de los datos se concentran en la parte derecha y hay valores extremos en la parte izquierda.
+* Kurtosis:
+    * ``Leptokurtic (positive kurtosis)``: Indicates that the tails of the distribution are heavier than they would be in a normal distribution. This implies that there are more extreme values present.
+    * ``Platykurtic (negative kurtosis)``: Indicates that the tails of the distribution are lighter than they would be in a normal distribution. This suggests that there are fewer extreme values present.
+* Skew:
+    * ``Positive skew``: Indicates that the right tail of the distribution is longer or thicker than the left. Most of the data is concentrated on the left side and there are extreme values on the right side.
+    * ``Negative skewness``: Indicates that the left tail of the distribution is longer or thicker than the right. Most of the data is concentrated on the right side and there are extreme values on the left side.
+
+* Curtosis:
+    * ``Leptocúrtica (positive curtosis)``: Indica que las colas de la distribución son más pesadas de lo que serían en una distribución normal. Esto implica que hay más valores extremos presentes.
+    * ``Platicúrtica (negative curtosis)``: Indica que las colas de la distribución son más ligeras de lo que serían en una distribución normal. Esto sugiere que hay menos valores extremos presentes.
+* Sesgo:
+    * ``Sesgo positivo``: Indica que la cola derecha de la distribución es más larga o gruesa que la izquierda. La mayoría de los datos se concentran en la parte izquierda y hay valores extremos en la parte derecha.
+    * ``Sesgo negativo``: Indica que la cola izquierda de la distribución es más larga o gruesa que la derecha. La mayoría de los datos se concentran en la parte derecha y hay valores extremos en la parte izquierda.
 
 
 ```python
@@ -366,6 +338,28 @@ pd.DataFrame({'train_skew': train[train_].skew(), 'test_skew': test[test_].skew(
 
 ## Apply Transformations | Aplicar Transformaciones
 
+#### Rename Target and Stage Values | Renombrar Valores del Target y Stage
+
+
+```python
+names_map = {
+ 'C': 0,
+ 'CL': 1,
+ 'D': 2,
+ 1.0: 'one',
+ 2.0:'two',
+ 3.0:'three',
+ 4.0:'four'
+}
+```
+
+
+```python
+train[TARGET] = train[TARGET].replace(names_map)
+train['Stage'] = train['Stage'].replace(names_map)
+test['Stage'] = test['Stage'].replace(names_map)
+```
+
 #### Convert categorical to dummy | Convertir categóricas a dummy
 
 
@@ -378,25 +372,22 @@ train[TARGET] = Status
 test = pd.get_dummies(test, drop_first=True)
 ```
 
-#### Rename Target Values | Renombrar Valores del Target
-
-
-```python
-names_map = {
- 'C': 0,
- 'CL': 1,
- 'D': 2
-}
-```
-
-
-```python
-train[TARGET] = train[TARGET].replace(names_map)
-```
-
 ---
 
 > ### Optional | Opcional
+
+#### There are two interesting options for ``Age`` | Hay dos opciones interesantes para ``Age``:
+
+* **Convert days to years | Transformar días a años**
+* Use the standard scale for cancer patients | Utilizar la escala standard para pacientes con cáncer
+    * [Standard Populations - 19 Age Groups](https://seer.cancer.gov/stdpopulations/stdpop.19ages.html)
+
+
+```python
+# Convert days to years
+# train['Age'] = train['Age'] // 365.25
+# test['Age'] = test['Age'] // 365.25
+```
 
 #### If the Data Does not Follow a Normal Distribution | Si los Datos no Siguen una Distribución Normal
 
@@ -414,7 +405,7 @@ for col in numeric_cols:
     test[col] = boxcox(test[col], lambda_)
 ```
 
-#### OR Apply Standard Scaler | O Aplicar Escalador Estándar
+* OR Apply Standard Scaler | O Aplicar Escalador Estándar
 
 
 ```python
@@ -425,6 +416,25 @@ for col in numeric_cols:
 # numeric_cols = train_.select_dtypes(include=['int64', 'float64']).columns
 
 # train[numeric_cols] = scaler.fit_transform(train[numeric_cols])
+# test[numeric_cols] = scaler.fit(test[numeric_cols])
+
+# del(train_)
+```
+
+* Or MinMaxScaler | O Escala min/max
+
+
+```python
+# scaler = MinMaxScaler()
+
+# train_ = train.drop(columns=[TARGET])
+
+# numeric_cols = train_.select_dtypes(include=['int64', 'float64']).columns
+
+# scaler.fit(train[numeric_cols])
+
+# train[numeric_cols] = scaler.transform(train[numeric_cols])
+# test[numeric_cols] = scaler.transform(test[numeric_cols])
 
 # del(train_)
 ```
@@ -433,13 +443,9 @@ for col in numeric_cols:
 
 > **Important:** *It is a good idea to regenerate the previous graphs and statistics once the transformations have been applied.* | *Es una buena idea volver a generar los gráficos y estadisticos anteriores una vez aplicadas las transformaciones*
 
-<h1 id="goto5" style="background-color:orangered;font-family:newtimeroman;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Individual Modeling</h1>
-
-<div style="font-family: cursive">
+<h1 id="goto5" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Individual Modeling</h1>
 
 [Back to Table of Contents](#goto0)
-
-</div>
 
 #### Metric Models | Metrica de Modelos
 
@@ -471,28 +477,63 @@ def apply_metrics(y_test, y_pred):
 
 
 ```python
-from sklearn.model_selection import train_test_split
-
-
 y = train[TARGET]
 X = train.drop(columns=[TARGET])
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.1, random_state=42)
 ```
 
-<h2 id="goto5a" style="background-color:darkorange;font-family:newtimeroman;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Logistic Model</h2>
+#### Apply Weights to '``Status``' Classes | Aplicar Pesos a las Clases de '``Status``'
 
-<div style="font-family: cursive">
+
+```python
+class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+
+weights_dict = {cls: weight for cls, weight in zip(np.unique(y_train), class_weights)}
+```
+
+---
+
+> ### Optional | Opcional
+
+#### Balancing minority classes | Equilibrar las clases minoritarias
+
+* Oversampling | Sobremuestreo
+
+
+```python
+# X_train, y_train = ADASYN(random_state=42).fit_resample(X_train, y_train)
+```
+
+
+```python
+# y_train.value_counts()
+```
+
+* Undersampling | Submuestreo
+
+
+```python
+# cc = ClusterCentroids()
+# X_train, y_train = cc.fit_resample(X_train, y_train)
+```
+
+
+```python
+# y_train.value_counts()
+```
+
+---
+
+<h2 id="goto5a" style="background-color:darkorange;font-family:cursive;color:black;font-size:150%;text-align:center;border-radius: 50px 50px;">Logistic Model</h2>
 
 [Back to Models](#goto5)
-
-</div>
 
 #### Create and train the model | Crear y Entrenar el Modelo
 
 
 ```python
-logistic_model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+logistic_model = LogisticRegression(multi_class='multinomial', solver='lbfgs', class_weight=weights_dict)
 logistic_model.fit(X_train, y_train)
 ```
 
@@ -562,15 +603,15 @@ submission[submission.columns[1:]] = calibrated_logistic.predict_proba(test)
 submission.to_csv('logistic.csv', index = False)
 ```
 
-<p style="color: blue; font-size: 150%"><b>
-CONCLUSION: Logistic Model (Box-Cox) is a Good/Bad option.
+<p style="color: red; font-size: 150%"><b>
+CONCLUSION: Logistic Model (Box-Cox) is a Bad option.
 </b></p>
 
-<p style="color: blue; font-size: 150%"><b>
->> Scoring Log Loss: N/a
+<p style="color: red; font-size: 150%"><b>
+>> Scoring Log Loss: 0.5674
 </b></p>
 
-<h2 id="goto5b" style="background-color:darkorange;font-family:newtimeroman;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Extreme Gradient Boosting Model</h2>
+<h2 id="goto5b" style="background-color:darkorange;font-family:cursive;color:black;font-size:150%;text-align:center;border-radius: 50px 50px;">Extreme Gradient Boosting Model</h2>
 
 <div style="font-family: cursive">
 
@@ -652,15 +693,15 @@ submission[submission.columns[1:]] = calibrated_xgb.predict_proba(test)
 submission.to_csv('xgboost.csv', index = False)
 ```
 
-<p style="color: green; font-size: 150%"><b>
-CONCLUSION: XGB Model (Box-Cox) is a Good option.
+<p style="color: orange; font-size: 150%"><b>
+CONCLUSION: XGB Model (Box-Cox) is a Regular option.
 </b></p>
 
-<p style="color: green; font-size: 150%"><b>
+<p style="color: orange; font-size: 150%"><b>
 >> Scoring Log Loss: 0.44352
 </b></p>
 
-<h2 id="goto5c" style="background-color:darkorange;font-family:newtimeroman;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Light Gradient Boosting Machine</h2>
+<h2 id="goto5c" style="background-color:darkorange;font-family:cursive;color:black;font-size:150%;text-align:center;border-radius: 50px 50px;">Light Gradient Boosting Machine</h2>
 
 <div style="font-family: cursive">
 
@@ -672,15 +713,15 @@ CONCLUSION: XGB Model (Box-Cox) is a Good option.
 
 
 ```python
-lgbm_model = LGBMClassifier(objective='multiclass', num_class=3) # multi_logloss
-lgbm_model.fit(X_train, y_train)
+lgb_model = LGBMClassifier(objective='multiclass', num_class=3, class_weight=weights_dict) # multi_logloss
+lgb_model.fit(X_train, y_train)
 ```
 
 #### Predict Test Values | Predecir Valores de Test
 
 
 ```python
-y_pred = lgbm_model.predict_proba(X_test)
+y_pred = lgb_model.predict_proba(X_test)
 ```
 
 #### Measure Performance | Medir el Rendimiento
@@ -698,15 +739,15 @@ apply_metrics(y_test, y_pred)
 
 
 ```python
-calibrated_lgbm = CalibratedClassifierCV(lgbm_model, method='sigmoid')
-calibrated_lgbm.fit(X_train, y_train)
+calibrated_lgb = CalibratedClassifierCV(lgb_model, method='sigmoid')
+calibrated_lgb.fit(X_train, y_train)
 ```
 
 #### Calibrated Class Probabilities | Probabilidades de Clase Calibradas
 
 
 ```python
-calibrated_y_pred = calibrated_lgbm.predict_proba(X_test)
+calibrated_y_pred = calibrated_lgb.predict_proba(X_test)
 ```
 
 #### Measure Performance | Medir el Rendimiento
@@ -720,7 +761,7 @@ apply_metrics(y_test, calibrated_y_pred)
 
 
 ```python
-sns.barplot(x = list(lgbm_model.feature_importances_), y = list(lgbm_model.feature_name_))
+sns.barplot(x = list(lgb_model.feature_importances_), y = list(lgb_model.feature_name_))
 ```
 
 ---
@@ -734,7 +775,7 @@ submission = pd.read_csv('sample_submission.csv')
 submission[submission.columns[0]] = test_id
 
 # submission[submission.columns[1:]] = lgbm_model.predict_proba(test)
-submission[submission.columns[1:]] = calibrated_lgbm.predict_proba(test)
+submission[submission.columns[1:]] = calibrated_lgb.predict_proba(test)
 ```
 
 
@@ -750,7 +791,7 @@ CONCLUSION: LGBM Model (Box-Cox) is a Good option.
 >> Scoring Log Loss: 0.43799
 </b></p>
 
-<h2 id="goto5d" style="background-color:darkorange;font-family:newtimeroman;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">CAT Boosting Model</h2>
+<h2 id="goto5d" style="background-color:darkorange;font-family:cursive;color:black;font-size:150%;text-align:center;border-radius: 50px 50px;">CAT Boosting Model</h2>
 
 <div style="font-family: cursive">
 
@@ -762,7 +803,7 @@ CONCLUSION: LGBM Model (Box-Cox) is a Good option.
 
 
 ```python
-cat_model = CatBoostClassifier(loss_function='MultiClass')
+cat_model = CatBoostClassifier(loss_function='MultiClass', class_weights=weights_dict)
 cat_model.fit(X_train, y_train, verbose=False)
 ```
 
@@ -788,8 +829,9 @@ apply_metrics(y_test, y_pred)
 
 
 ```python
+# The output is deleted to make the notebook more readable
 calibrated_cat = CalibratedClassifierCV(cat_model, method='sigmoid')
-calibrated_cat.fit(X_train, y_train, verbose=0)
+calibrated_cat.fit(X_train, y_train)
 ```
 
 #### Calibrated Class Probabilities | Probabilidades de Clase Calibradas
@@ -840,7 +882,7 @@ CONCLUSION: CAT Model (Box-Cox) is a Good option.
 >> Scoring Log Loss: 0.43495
 </b></p>
 
-<h2 id="goto5e" style="background-color:darkorange;font-family:newtimeroman;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Neural Network Model</h2>
+<h2 id="goto5e" style="background-color:darkorange;font-family:cursive;color:black;font-size:200%;text-align:center;border-radius: 50px 50px;">Neural Network Model</h2>
 
 <div style="font-family: cursive">
 
@@ -848,81 +890,66 @@ CONCLUSION: CAT Model (Box-Cox) is a Good option.
 
 </div>
 
->NOTE: Create the custom neural network meta-model based in this [Great Job!](https://www.kaggle.com/code/larjeck/regression-with-a-mohs-hardness-dataset-optimal)
-
-#### Generate One Hot Encode on the Target | Generar "One Hot Encode" en el Target
+#### Create and train the model | Crear y Entrenar el Modelo
 
 
 ```python
-encoder = OneHotEncoder(sparse=False, categories='auto')
-y_encoded = encoder.fit_transform(y.values.reshape(-1, 1))
-y_train_encoded = encoder.transform(y_train.values.reshape(-1, 1))
-y_test_encoded = encoder.transform(y_test.values.reshape(-1, 1))
-```
-
-These **callbacks** are used to improve the performance and stability of training deep learning models. ``EarlyStopping`` prevents overfitting by stopping training when the validation metric stops improving, ``ReduceLROnPlateau`` dynamically adjusts the learning rate for more stable training and ``TerminateOnNaN`` stops training if there are numerical problems.
-
-Estas **devoluciones de llamada** se utilizan para mejorar el rendimiento y la estabilidad del entrenamiento de modelos de aprendizaje profundo. ``EarlyStopping`` previene el sobreajuste al detener el entrenamiento cuando la métrica de validación deja de mejorar, ``ReduceLROnPlateau`` ajusta dinámicamente la tasa de aprendizaje para un entrenamiento más estable y ``TerminateOnNaN`` detiene el entrenamiento si hay problemas numéricos.
-
-
-```python
-callbacks_list = [
-    tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=30, verbose=2, mode='min',restore_best_weights=True),
-    tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.8, patience=3, min_lr=0.00001),
-    tf.keras.callbacks.TerminateOnNaN()
-]
-```
-
-
-```python
-def create_model():
-    model = tf.keras.Sequential([
-        tf.keras.layers.BatchNormalization(momentum=0.99, epsilon=0.00001, input_shape=(len(X.columns), )),
-        tf.keras.layers.Dense(16, activation='relu'),
-        tf.keras.layers.Dense(32, activation='relu'),
-        tf.keras.layers.Dense(3, activation='softmax')
-    ])
-
-    model.compile(optimizer=tf.keras.optimizers.Adam(0.013, beta_1=0.5, beta_2=0.999, epsilon=1e-07),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-
-    return model
-
-nn_model = create_model()
-
-nn_model.fit(X.astype('float32'), y_encoded.astype('float32'),
-            epochs=200,
-            callbacks=callbacks_list,
-            validation_split=0.1)
+nn_model = MLPClassifier(random_state=42, max_iter=300)
+nn_model.fit(X_train, y_train)
 ```
 
 #### Predict Test Values | Predecir Valores de Test
 
 
 ```python
-y_pred = nn_model.predict(X_test.astype('float32'))
+y_pred = nn_model.predict_proba(X_test)
 ```
 
 #### Measure Performance | Medir el Rendimiento
 
 
 ```python
-apply_metrics(y_test_encoded, y_pred)
+apply_metrics(y_test, y_pred)
 ```
 
 ---
 
-### Submission and Scoring | Presentación y Puntuación
+> ### Optional | Opcional
+
+#### More Precise Calibration of Probabilities | Calibración más Precisa de las Probabilidades
 
 
 ```python
-# Test a submission
+calibrated_nn = CalibratedClassifierCV(nn_model, method='sigmoid')
+calibrated_nn.fit(X_train, y_train)
+```
+
+#### Calibrated Class Probabilities | Probabilidades de Clase Calibradas
+
+
+```python
+calibrated_y_pred = calibrated_nn.predict_proba(X_test)
+```
+
+#### Measure Performance | Medir el Rendimiento
+
+
+```python
+apply_metrics(y_test, calibrated_y_pred)
+```
+
+---
+
+#### Submission and Scoring | Presentación y Puntuación
+
+
+```python
 submission = pd.read_csv('sample_submission.csv')
 
 submission[submission.columns[0]] = test_id
 
-submission[submission.columns[1:]] = nn_model.predict(test.astype('float32'))
+# submission[submission.columns[1:]] = cat_model.predict_proba(test)
+submission[submission.columns[1:]] = calibrated_nn.predict_proba(test)
 ```
 
 
@@ -930,15 +957,15 @@ submission[submission.columns[1:]] = nn_model.predict(test.astype('float32'))
 submission.to_csv('nn.csv', index = False)
 ```
 
-<p style="color:orange;font-size:150%"><b>
+<p style="color: orange; font-size: 150%"><b>
 CONCLUSION: NN Model (Box-Cox) is a Regular option.
 </b></p>
 
-<p style=color:orange;font-size:150%><b>
-* Scoring Log Loss: 0.52842
+<p style="color: orange; font-size: 150%"><b>
+>> Scoring Log Loss: 0.51842
 </b></p>
 
-<h1 id="goto6" style="background-color:orangered;font-family:newtimeroman;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Voting Meta-Model</h1>
+<h1 id="goto6" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Stacking Models</h1>
 
 <div style="font-family: cursive">
 
@@ -946,13 +973,24 @@ CONCLUSION: NN Model (Box-Cox) is a Regular option.
 
 </div>
 
-#### Create a ``VotingClassifier`` meta estimator with the above models without the logistic and NN model. | Crea un meta estimador ``VotingClassifier`` con los modelos anteriores sin los modelos logístico y NN.
+#### Create a ``Voting Classifier`` meta estimator with the previous boosting models and a ``Neural Network`` incorporating the predictions of the boosting models to the original Dataset.
+
+#### Crea un meta estimador ``Clasificador de Votaciones`` con los modelos boosting anteriores y una ``Red Neuronal`` incorporando las predicciones de los modelos boosting al Dataset original.
+
+<h2 id="goto6a" style="background-color:darkorange;font-family:cursive;color:black;font-size:200%;text-align:center;border-radius: 50px 50px;">Voting Classifier Model</h2>
+
+<div style="font-family: cursive">
+
+[Back to Stacking Models](#goto6)
+
+</div>
 
 #### Create and train the model | Crear y Entrenar el Modelo
 
 
 ```python
-voting_clf = VotingClassifier(estimators=[('xgb', calibrated_xgb), ('lgb', calibrated_lgbm), ('cat', calibrated_cat)], voting='soft', verbose=False) # ('log', logistic_model)
+# The output is deleted to make the notebook more readable
+voting_clf = VotingClassifier(estimators=[('xgb', calibrated_xgb), ('lgb', calibrated_lgb), ('cat', calibrated_cat)], voting='soft') # ('log', logistic_model)
 voting_clf.fit(X_train, y_train)
 ```
 
@@ -986,18 +1024,18 @@ submission[submission.columns[1:]] = voting_clf.predict_proba(test)
 
 
 ```python
-submission.to_csv('cls.csv', index = False)
+submission.to_csv('stack_cls.csv', index = False)
 ```
 
 <p style=color:green;font-size:150%><b>
-CONCLUSION: Voting meta-model (Box-Cox) is a Good option.
+CONCLUSION: Voting Classifier (Box-Cox) is a Best option.
 </b></p>
 
 <p style=color:green;font-size:150%><b>
-* Scoring Log Loss: 0.43412
+* Scoring Log Loss: 0.43386
 </b></p>
 
-<h1 id="goto7" style="background-color:orangered;font-family:newtimeroman;color:black;font-size:350%;text-align:center;border-radius: 50px 50px;">Conclusions</h1>
+<h1 id="goto7" style="background-color:orangered;font-family:cursive;color:black;font-size:250%;text-align:center;border-radius: 50px 50px;">Conclusions</h1>
 
 <div style="font-family: cursive">
 
@@ -1005,16 +1043,21 @@ CONCLUSION: Voting meta-model (Box-Cox) is a Good option.
 
 </div>
 
-<div style="color: OrangeRed; font-family: cursive"><b>
+**The Best Result:**
 
-The Best Result:
-
-* The Voting Model (with Box-Cox data transformation) presents the best performance
+* The Voting Model presents the best performance:
+    * Box-Cox transformation
+    * Calibrated probabilities
+    * Weight balancing
   
-It Might be Interesting:
+**It Might be Interesting:**
 
-* Apply Class Balancing to 'CL'
+* Try a Special Treatment for the 'Age' Feature [**✓**]
+* Standardize features [**✓**]
+* Use the Original Dataset as Test [**✓**]
+* Use Class Weights [**✓**]
+* Convert 'Stage' to categorical [**✓**]
+* Apply Class Balancing to 'CL' [**X**]
+* Use NN Model as Metamodel [**X**]
+* Try a Special Treatment for the 'N-days' Feature
 * Customize Model Hyperparameters
-* Try a Special Treatment for the 'Age' Feature
-
-</b></div>

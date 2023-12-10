@@ -1,4 +1,5 @@
 catboost_info
+tuner_dir
 cat.csv
 env.bat
 lgbm.csv
